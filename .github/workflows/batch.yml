@@ -1,0 +1,48 @@
+# bigdeal 배치 — 모체 산출물 fetch → 정규화 → 판정 → 커밋
+# 01:10 KST = 16:10 UTC (모체 00:40 KST push 이후 30분 여유)
+# ⚠️ Actions cron은 지연이 흔하다(수십 분). 늦게 돌아도 방향은 안전하다 —
+#    모체가 낡았을 때만 배치가 exit(1)로 실패하고, 그 실패가 곧 알림이다.
+name: bigdeal-batch
+on:
+  schedule:
+    - cron: '10 16 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bigdeal-batch
+  cancel-in-progress: false
+
+jobs:
+  batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 판정 시뮬레이션 (로직 자가검증)
+        run: node batch/verdict-sim.mjs
+
+      - name: 배치 실행 (모체가 낡았으면 여기서 실패한다)
+        run: node batch/batch.mjs
+
+      - name: 산출물 검사 (실패 시 push 중단)
+        run: node batch/verify.mjs
+
+      - name: 커밋·푸시
+        run: |
+          git config user.name "bigdeal-batch"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/deals-latest.json
+          if git diff --cached --quiet; then
+            echo "변경 없음 — 커밋 생략"
+          else
+            git commit -m "data: $(date -u -d '+9 hours' +%F)"
+            git push
+          fi
