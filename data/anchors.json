@@ -1,4 +1,18 @@
 {
-  "_comment": "수작업 증강 목록 — 등록 툴/수작업이 이 파일만 편집한다. 규칙: ① link에 반드시 A100706845 ② productUrl(원본) 필수 ③ checkedAt은 실제 확인일. 규칙 위반은 배치가 throw로 거부한다.",
-  "anchors": []
+  "_comment": "수작업 증강 목록 — 등록 툴/수작업이 이 파일만 편집한다. 규칙: link에 반드시 A100706845, productUrl은 원본 유지, price는 눈으로 확인한 값만.",
+  "anchors": [
+    {
+      "target": "toss-1971",
+      "sellers": [
+        {
+          "name": "G마켓",
+          "price": 19810,
+          "productUrl": "https://item.gmarket.co.kr/Item?goodscode=2774300648",
+          "link": "https://click.linkprice.com/click.php?m=gmarket&a=A100706845&l=9999&l_cd1=3&l_cd2=0&tu=https%3A%2F%2Fitem.gmarket.co.kr%2FItem%3Fgoodscode%3D2774300648",
+          "checkedAt": "2026-08-17",
+          "shipIncluded": true
+        }
+      ]
+    }
+  ]
 }
