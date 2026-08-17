@@ -7,6 +7,9 @@ on:
   schedule:
     - cron: '10 16 * * *'
   workflow_dispatch: {}
+  push:
+    paths:
+      - 'data/anchors.json'
 
 permissions:
   contents: write
