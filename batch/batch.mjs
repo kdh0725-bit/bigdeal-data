@@ -29,7 +29,7 @@ const FORBIDDEN_SITE_CODE = 'A100706842';
 const MIN_VERDICT_DAYS = 7;
 const ALLOW_STALE = process.argv.includes('--allow-stale');
 
-const VERSION = 'bigdeal-batch v1.3.2';  // v1.3: 자기 이력 승계 / v1.3.2: 로컬 소스·429 재시도·레거시 호출 호환
+const VERSION = 'bigdeal-batch v1.4';  // v1.3: 자기 이력 승계 / v1.4: 변화 원인 귀속 리셋
 console.log(`[${VERSION}]`);
 
 // ── 날짜 유틸 ────────────────────────────────────────────────
@@ -49,15 +49,35 @@ const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slic
 //   레거시 레코드(k 없음)는 n 으로 서명한다 — 모체 승계분은 전부 토스 단독이라 안전하다.
 export const scopeKey = r => r.k || (r.n === 1 ? '토스쇼핑' : `n${r.n ?? 1}`);
 
+const scopeSet = r => {
+  if (r.k) return new Set(String(r.k).split('|'));
+  if ((r.n ?? 1) === 1) return new Set([r.s || '토스쇼핑']);
+  return null;                                   // 레거시 다곳 레코드 — 구성을 알 수 없다
+};
+
 export function scopeWindow(h) {
   let start = 0, dir = null, from = null, to = null;
   for (let i = 1; i < h.length; i++) {
-    // 스코프가 바뀌어도 최저가 수준이 그대로면 시계열은 비교 가능하다 — 리셋하지 않는다.
-    // (비싼 판매처가 붙거나 빠진 경우. 괜히 리셋하면 12일치 이력이 "기록 1일째"로 퇴화한다)
-    if (scopeKey(h[i]) !== scopeKey(h[i - 1]) && h[i].price !== h[i - 1].price) {
-      start = i; from = h[i - 1]; to = h[i];
-      dir = (h[i].n ?? 1) > (h[i - 1].n ?? 1) ? 'expand' : (h[i].n ?? 1) < (h[i - 1].n ?? 1) ? 'shrink' : 'swap';
+    const prev = h[i - 1], cur = h[i];
+    if (scopeKey(cur) === scopeKey(prev)) continue;
+    if (cur.price === prev.price) continue;      // 최저가 수준이 그대로면 시계열은 이어진다
+
+    // ★ v1.4 — 스코프가 바뀌고 가격도 움직였을 때, 그 움직임의 원인이 스코프 변경인지 본다.
+    //   원인이 아니면(기존 판매처가 스스로 가격을 바꾼 것이면) 리셋하지 않는다.
+    //   그러지 않으면 "같은 날 토스가 내렸는데 앵커를 붙였다"는 이유로 판정이 통째로 보류된다.
+    const ps = scopeSet(prev), cs = scopeSet(cur);
+    let caused = true;                            // 구성을 모르면(레거시) 보수적으로 리셋
+    if (ps && cs) {
+      const added = [...cs].filter(x => !ps.has(x));
+      const removed = [...ps].filter(x => !cs.has(x));
+      const byNewSeller = added.includes(cur.s);        // 새로 들어온 곳이 최저가가 됐다
+      const lostBestSeller = removed.includes(prev.s);  // 최저가였던 곳이 빠졌다
+      caused = byNewSeller || lostBestSeller;
     }
+    if (!caused) continue;
+
+    start = i; from = prev; to = cur;
+    dir = (cur.n ?? 1) > (prev.n ?? 1) ? 'expand' : (cur.n ?? 1) < (prev.n ?? 1) ? 'shrink' : 'swap';
   }
   return { win: h.slice(start), start, dir, from, to };
 }
@@ -72,7 +92,7 @@ export function verdictOf(history) {
   const min = Math.min(...prices), max = Math.max(...prices);
   const base = { verdictDays: days, verdictMin: min, histDays };
 
-  // 스코프가 막 넓어졌다 — 판정 대신 사실을 말한다: "더 싼 판매처를 찾았어요"
+  // 스코프가 넓어졌고 그 새 판매처가 실제로 최저가를 낮췄을 때만 사실을 말한다
   if (dir === 'expand' && days < MIN_VERDICT_DAYS && to.price < from.price) {
     return { ...base, verdict: 'scope_new', scopeDir: 'expand', scopeBy: to.s ?? null, scopeDelta: from.price - to.price };
   }

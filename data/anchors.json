@@ -13,6 +13,19 @@
           "shipIncluded": true
         }
       ]
+    },
+    {
+      "target": "toss-1536550523",
+      "sellers": [
+        {
+          "name": "G마켓",
+          "price": 12260,
+          "productUrl": "https://item.gmarket.co.kr/Item?goodscode=2570862279",
+          "link": "https://click.linkprice.com/click.php?m=gmarket&a=A100706845&l=9999&l_cd1=3&l_cd2=0&tu=https%3A%2F%2Fitem.gmarket.co.kr%2FItem%3Fgoodscode%3D2570862279",
+          "checkedAt": "2026-08-17",
+          "shipIncluded": true
+        }
+      ]
     }
   ]
 }
